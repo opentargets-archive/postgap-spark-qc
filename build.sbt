@@ -12,6 +12,8 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-sql" % "2.2.1"
 )
 
+libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.0"
+
 assemblyMergeStrategy in assembly := {
   case PathList("org","aopalliance", xs @ _*) => MergeStrategy.last
   case PathList("javax", "inject", xs @ _*) => MergeStrategy.last
