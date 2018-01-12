@@ -1,5 +1,6 @@
 package postgapspark
 
+import org.apache.spark
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
@@ -17,10 +18,8 @@ case class PGLine(title: String, text: String) {
 
 object PostgapQC {
 
-  // val conf: SparkConf = new SparkConf().setAppName("PostgapQC").setMaster("local[*]")
-  val conf: SparkConf = new SparkConf()
-  val sc: SparkSession = SparkSession.builder()
-    .appName("PostgapQC").master("local[*]").config(conf).getOrCreate()
+  val conf: SparkConf = new SparkConf().setAppName("PostgapQC").setMaster("local[*]")
+  val sc: SparkContext = new SparkContext(conf)
 
   val pgRdd: RDD[PGLine] =
     sc.textFile(PostgapData.filePath)
