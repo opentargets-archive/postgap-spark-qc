@@ -23,18 +23,26 @@ object PostgapQC {
   val progVersion = "0.1"
   val progName = "PostgapQC"
 
-  def runQC(config: Config): SparkContext = {
+  def runQC(config: Config): SparkSession = {
     val conf: SparkConf = new SparkConf().setAppName("PostgapQC").setMaster("local[*]")
     val sc: SparkContext = new SparkContext(conf)
 
-    val pgRdd: RDD[PGLine] =
-      sc.textFile(if (config.in.isEmpty) PostgapData.filePath else config.in)
-        .map(d => PostgapData.parse(d)).persist(StorageLevel.MEMORY_AND_DISK)
+    val ss: SparkSession = SparkSession.builder
+      .config(conf)
+      .getOrCreate
 
-    // a file per partition
-    pgRdd.saveAsTextFile(config.out)
+    val pgd = ss.read
+      .format("csv")
+      .option("header", "true")
+      .option("inferSchema", "true")
+      .option("delimiter","\t")
+      .option("mode", "DROPMALFORMED")
+      .load(config.in)
 
-    sc
+    pgd.sample(true, 0.1).show()
+    pgd.rdd.saveAsTextFile(config.out)
+
+    ss
   }
 
   def main(args: Array[String]) {
@@ -49,7 +57,7 @@ object PostgapQC {
   val parser = new scopt.OptionParser[Config](progName) {
     head(progName, progVersion)
 
-    opt[String]('i', "in")
+    opt[String]('i', "in").required()
       .valueName("<file>")
       .action( (x, c) => c.copy(in = x) )
       .text("in filename")
