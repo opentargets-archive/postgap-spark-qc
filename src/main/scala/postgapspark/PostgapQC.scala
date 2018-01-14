@@ -9,7 +9,8 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
 import scopt.OptionParser
 
-case class Config(in: String = "", out: String = "", kwargs: Map[String,String] = Map())
+case class Config(in: String = "", out: String = "",
+                  cores: String = "*", kwargs: Map[String,String] = Map())
 
 case class PGLine(title: String, text: String) {
   /**
@@ -24,12 +25,16 @@ object PostgapQC {
   val progName = "PostgapQC"
 
   def runQC(config: Config): SparkSession = {
-    val conf: SparkConf = new SparkConf().setAppName("PostgapQC").setMaster("local[*]")
-    val sc: SparkContext = new SparkContext(conf)
+    val conf: SparkConf = new SparkConf()
+      .setAppName("PostgapQC")
+      .setMaster(s"local[${config.cores}]")
 
     val ss: SparkSession = SparkSession.builder
       .config(conf)
       .getOrCreate
+
+    // needed to use the $notation
+    import ss.implicits._
 
     val pgd = ss.read
       .format("csv")
@@ -39,8 +44,21 @@ object PostgapQC {
       .option("mode", "DROPMALFORMED")
       .load(config.in)
 
-    pgd.sample(true, 0.1).show()
-    pgd.rdd.saveAsTextFile(config.out)
+    // print schema and create a temp table to query
+    pgd.printSchema()
+    pgd.createOrReplaceTempView("postgap")
+
+    // persist the created table
+    ss.table("postgap").persist(StorageLevel.MEMORY_AND_DISK)
+    val gwasSNPs = ss.sql("SELECT * from postgap WHERE ls_snp_is_gwas_snp = 1")
+    gwasSNPs.sample(true, 0.2).show()
+    ss.sql("SELECT count(*) from postgap WHERE ls_snp_is_gwas_snp = 1").show()
+
+    // pgd.sample(true, 0.1).show()
+    // pgd.write.format("csv").option("header", "true").option("delimiter", "\t").save(config.out)
+    gwasSNPs.write.format("csv").option("header", "true").option("delimiter", "\t").save(config.out)
+
+    // pgd.rdd.saveAsTextFile(config.out)
 
     ss
   }
@@ -56,6 +74,11 @@ object PostgapQC {
 
   val parser = new scopt.OptionParser[Config](progName) {
     head(progName, progVersion)
+
+    opt[String]('c', "cores")
+      .valueName("<num-cores|*>")
+      .action( (x, c) => c.copy(in = x) )
+      .text("num cores to run locally default '*'")
 
     opt[String]('i', "in").required()
       .valueName("<file>")
