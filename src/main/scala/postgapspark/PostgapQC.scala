@@ -95,7 +95,7 @@ object PostgapQC {
     }
   }
 
-  val parser = new OptionParser[Config](progName) {
+  val parser:OptionParser[Config] = new OptionParser[Config](progName) {
     head(progName, progVersion)
 
     opt[String]('c', "cores")
@@ -110,7 +110,7 @@ object PostgapQC {
 
     opt[String]('e', "eco").required()
       .valueName("<file>")
-      .action( (x, c) => c.copy(in = x) )
+      .action( (x, c) => c.copy(eco = x) )
       .text("eco filename")
 
     opt[String]('o', "out").required()
