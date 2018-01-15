@@ -7,6 +7,9 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions._
+
 import scopt.OptionParser
 
 case class Config(in: String = "", out: String = "",
@@ -36,29 +39,48 @@ object PostgapQC {
     // needed to use the $notation
     import ss.implicits._
 
+    val ecoLT = PostgapECO.generateLookupTable(ss)
+
+    // read the data with a predefined schema
+    // adding 2 more columns vep_max_score and fg_score
     val pgd = ss.read
       .format("csv")
       .option("header", "true")
-      .option("inferSchema", "true")
+      // .option("inferSchema", "true")
       .option("delimiter","\t")
       .option("mode", "DROPMALFORMED")
+      .schema(PostgapData.Schema)
       .load(config.in)
 
+    // TODO use udf instead this messy caos
+    val maxVEP = udf((vep: String) => PostgapECO.computeMaxVEP(vep, ecoLT))
+    val pgdWithVepMax = pgd.withColumn("vep_max_score",
+        when($"vep_terms".isNotNull, maxVEP($"vep_terms"))
+          .otherwise(0))
+      .toDF()
+
+    val fgScore = udf((gtex: Double, fantom5: Double, dhs: Double, pchic: Double) =>
+      PostgapFG.computeFGScore(gtex, fantom5, dhs, pchic))
+
+    val pgdWithFG = pgdWithVepMax.withColumn("fg_score",
+        when($"GTEx".isNotNull and $"Fantom5".isNotNull and $"DHS".isNotNull and $"PCHiC".isNotNull,
+          fgScore($"GTEx", $"Fantom5", $"DHS", $"PCHiC")).otherwise(0))
+      .toDF()
+
     // print schema and create a temp table to query
-    pgd.printSchema()
-    pgd.createOrReplaceTempView("postgap")
+    // pgd.printSchema()
+
+    pgdWithFG.createOrReplaceTempView("postgap")
 
     // persist the created table
     ss.table("postgap").persist(StorageLevel.MEMORY_AND_DISK)
-    val gwasSNPs = ss.sql("SELECT * from postgap WHERE ls_snp_is_gwas_snp = 1")
-    gwasSNPs.sample(true, 0.2).show()
-    ss.sql("SELECT count(*) from postgap WHERE ls_snp_is_gwas_snp = 1").show()
 
-    // pgd.sample(true, 0.1).show()
-    // pgd.write.format("csv").option("header", "true").option("delimiter", "\t").save(config.out)
-    gwasSNPs.write.format("csv").option("header", "true").option("delimiter", "\t").save(config.out)
+    // get filterout lines without the proper score levels at func genomics
+    val filteredOTData = ss.sql("SELECT * FROM postgap WHERE vep_max_score >= 0.65 or fg_score > 0 or nearest = 1")
+    filteredOTData.write.format("csv").option("header", "true").option("delimiter", "\t").save(config.out)
 
-    // pgd.rdd.saveAsTextFile(config.out)
+    val filteredOTDataCount = filteredOTData.count
+    println(s"The number of rows with (vep >= 0.65 or fg > 0 or nearest) is $filteredOTDataCount")
 
     ss
   }
@@ -72,7 +94,7 @@ object PostgapQC {
     }
   }
 
-  val parser = new scopt.OptionParser[Config](progName) {
+  val parser = new OptionParser[Config](progName) {
     head(progName, progVersion)
 
     opt[String]('c', "cores")
