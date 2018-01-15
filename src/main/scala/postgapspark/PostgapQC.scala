@@ -13,7 +13,8 @@ import org.apache.spark.sql.functions._
 import scopt.OptionParser
 
 case class Config(in: String = "", out: String = "",
-                  cores: String = "*", kwargs: Map[String,String] = Map())
+                  cores: String = "*", eco: String = "",
+                  kwargs: Map[String,String] = Map())
 
 case class PGLine(title: String, text: String) {
   /**
@@ -24,7 +25,7 @@ case class PGLine(title: String, text: String) {
 }
 
 object PostgapQC {
-  val progVersion = "0.1"
+  val progVersion = "0.5"
   val progName = "PostgapQC"
 
   def runQC(config: Config): SparkSession = {
@@ -39,7 +40,7 @@ object PostgapQC {
     // needed to use the $notation
     import ss.implicits._
 
-    val ecoLT = PostgapECO.generateLookupTable(ss)
+    val ecoLT = PostgapECO.generateLookupTable(ss, config.eco)
 
     // read the data with a predefined schema
     // adding 2 more columns vep_max_score and fg_score
@@ -107,6 +108,11 @@ object PostgapQC {
       .action( (x, c) => c.copy(in = x) )
       .text("in filename")
 
+    opt[String]('e', "eco").required()
+      .valueName("<file>")
+      .action( (x, c) => c.copy(in = x) )
+      .text("eco filename")
+
     opt[String]('o', "out").required()
       .valueName("<folder>")
       .action( (x, c) => c.copy(out = x) )
@@ -117,6 +123,6 @@ object PostgapQC {
       .action( (x, c) => c.copy(kwargs = x) )
       .text("other arguments")
 
-    note("If missing --in <file> internal package sample will be used instead.\n")
+    note("You need to specify eco file input file and output dir.\n")
   }
 }
