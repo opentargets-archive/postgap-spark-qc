@@ -10,6 +10,4 @@ object PostgapFG {
 
     0.5 + (0.4 * total.sum / 19)
   }
-
-  private[postgapspark] def computeNearest: Boolean = false
 }
