@@ -17,7 +17,7 @@ case class Config(in: String = "", out: String = "",
                   kwargs: Map[String,String] = Map())
 
 object PostgapQC {
-  val progVersion = "0.5"
+  val progVersion = "0.12"
   val progName = "PostgapQC"
 
   def runQC(config: Config): SparkSession = {

@@ -1,13 +1,13 @@
 name := "postgap-spark"
 
-val localVersion = "0.12"
+//val localVersion = "0.12"
+//
+//val ver = System.getenv("TRAVIS_TAG") match {
+//  case versionTag if !versionTag.isEmpty => versionTag
+//  case _ => localVersion
+//}
 
-val ver = System.getenv("TRAVIS_TAG") match {
-  case versionTag if !versionTag.isEmpty => versionTag
-  case _ => "0.9"
-}
-
-version := ver
+version := "0.12"
 
 scalaVersion := "2.11.12"
 
