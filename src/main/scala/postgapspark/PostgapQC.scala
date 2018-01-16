@@ -73,9 +73,10 @@ object PostgapQC {
       GROUP BY gwas_source""").show(100, truncate=false)
 
     val aggregateByChr = ss.sql("""
-      SELECT GRCh38_chrom, count(*)
+      SELECT GRCh38_chrom, count(*) GRCh38_chrom_count
       FROM postgap
-      GROUP BY GRCh38_chrom""").show(100, truncate=false)
+      GROUP BY GRCh38_chrom
+      ORDER BY GRCh38_chrom_count DESC""").show(1000, truncate=false)
 
     // get filterout lines without the proper score levels at func genomics
     // also chromosome filter
