@@ -13,6 +13,7 @@ addons:
       - oracle-java8-installer 
 deploy:
   provider: releases
+  api_key: $TOKEN
   skip_cleanup: true
   file:
     - target/scala-2.11/postgap-spark-assembly-$TRAVIS_TAG.jar
