@@ -81,7 +81,7 @@ object PostgapQC {
       GROUP BY gwas_source""").show(100, truncate=false)
 
     val aggregateByNearest = ss.sql("""
-      SELECT gwas_source, count(*)
+      SELECT Nearest, count(*)
       FROM postgap
       WHERE gwas_source = 'GWAS Catalog'
       GROUP BY Nearest""").show(100, truncate=false)
