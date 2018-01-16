@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/opentargets/postgap-spark-qc.svg?branch=master)](https://travis-ci.org/opentargets/postgap-spark-qc)
+
 ## How to run
 
 First, you have to download a _fat-jar_ from Releases
