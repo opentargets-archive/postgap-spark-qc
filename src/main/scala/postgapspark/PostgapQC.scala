@@ -45,9 +45,11 @@ object PostgapQC {
       .schema(PostgapData.Schema)
       .load(config.in)
 
-    // TODO use udf instead this messy caos
+    // select only gwas source and exclude the rest of sources
+    val pgdGWAS = pgd.filter("gwas_source = 'GWAS Catalog'")
+
     val maxVEP = udf((vep: String) => PostgapECO.computeMaxVEP(vep, ecoLT))
-    val pgdWithVepMax = pgd.withColumn("vep_max_score",
+    val pgdWithVepMax = pgdGWAS.withColumn("vep_max_score",
         when($"vep_terms".isNotNull, maxVEP($"vep_terms"))
           .otherwise(0))
       .toDF()
