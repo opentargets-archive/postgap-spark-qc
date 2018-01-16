@@ -53,4 +53,7 @@ object PostgapData {
 
   val chromosomes = (1 to 22).toSeq.map(_.toString) ++ Seq("X", "Y", "MT")
   val chromosomesString = chromosomes.mkString("('", "', '", "')")
+
+  private[postgapspark] def computeAbsDist(snpChr: String, geneChr: String, snpPos: Int, genePos: Int) =
+    if (snpChr == geneChr) math.abs(snpPos - genePos) else Int.MaxValue
 }

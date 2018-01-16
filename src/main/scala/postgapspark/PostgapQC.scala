@@ -59,10 +59,18 @@ object PostgapQC {
           fgScore($"GTEx", $"Fantom5", $"DHS", $"PCHiC")).otherwise(0))
       .toDF()
 
+    val funcDist = udf((snpChr: String, geneChr: String, snpPos: Int, genePos: Int) =>
+      PostgapData.computeAbsDist(snpChr, geneChr, snpPos, genePos))
+
+    val pgdWithDist = pgdWithFG.withColumn("snp_gene_dist",
+      when($"GRCh38_chrom".isNotNull and $"GRCh38_gene_chrom".isNotNull
+          and $"GRCh38_pos".isNotNull and $"GRCh38_gene_pos".isNotNull,
+        funcDist($"GRCh38_chrom", $"GRCh38_gene_chrom", $"GRCh38_pos", $"GRCh38_gene_pos")).otherwise(Int.MaxValue))
+      .toDF()
     // print schema and create a temp table to query
     // pgd.printSchema()
 
-    pgdWithFG.createOrReplaceTempView("postgap")
+    pgdWithDist.createOrReplaceTempView("postgap")
 
     // persist the created table
     ss.table("postgap").persist(StorageLevel.MEMORY_AND_DISK)
@@ -85,7 +93,9 @@ object PostgapQC {
       FROM postgap
       WHERE (vep_max_score >= 0.65 OR fg_score > 0 OR nearest = 1)
         AND gwas_source = 'GWAS Catalog'
-        AND GRCh38_chrom IN ${PostgapData.chromosomesString}""")
+        AND GRCh38_chrom IN ${PostgapData.chromosomesString}
+        AND GRCh38_chrom = GRCh38_gene_chrom
+        AND snp_gene_dist <= 1000000""")
     filteredOTData.write.format("csv").option("header", "true").option("delimiter", "\t").save(config.out)
 
     val filteredOTDataCount = filteredOTData.count
