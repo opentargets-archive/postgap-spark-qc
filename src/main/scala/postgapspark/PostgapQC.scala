@@ -80,6 +80,13 @@ object PostgapQC {
       FROM postgap
       GROUP BY gwas_source""").show(100, truncate=false)
 
+    val aggregateByNearest = ss.sql("""
+      SELECT gwas_source, count(*)
+      FROM postgap
+      WHERE gwas_source = 'GWAS Catalog'
+      GROUP BY Nearest""").show(100, truncate=false)
+
+
     val aggregateByChr = ss.sql("""
       SELECT GRCh38_chrom, count(*) GRCh38_chrom_count
       FROM postgap
@@ -91,7 +98,7 @@ object PostgapQC {
     val filteredOTData = ss.sql(s"""
       SELECT *
       FROM postgap
-      WHERE (vep_max_score >= 0.65 OR fg_score > 0 OR nearest = 1)
+      WHERE (vep_max_score >= 0.65 OR fg_score > 0 OR Nearest = 1)
         AND gwas_source = 'GWAS Catalog'
         AND GRCh38_chrom IN ${PostgapData.chromosomesString}
         AND GRCh38_chrom = GRCh38_gene_chrom
