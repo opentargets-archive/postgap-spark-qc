@@ -45,11 +45,8 @@ object PostgapQC {
       .schema(PostgapData.Schema)
       .load(config.in)
 
-    // select only gwas source and exclude the rest of sources
-    val pgdGWAS = pgd.filter("gwas_source = 'GWAS Catalog'")
-
     val maxVEP = udf((vep: String) => PostgapECO.computeMaxVEP(vep, ecoLT))
-    val pgdWithVepMax = pgdGWAS.withColumn("vep_max_score",
+    val pgdWithVepMax = pgd.withColumn("vep_max_score",
         when($"vep_terms".isNotNull, maxVEP($"vep_terms"))
           .otherwise(0))
       .toDF()
@@ -70,8 +67,16 @@ object PostgapQC {
     // persist the created table
     ss.table("postgap").persist(StorageLevel.MEMORY_AND_DISK)
 
+    val aggregateBySource = ss.sql("""
+      SELECT gwas_source, count(*)
+      FROM postgap
+      GROUP BY gwas_source""").show(100, truncate=false)
+
     // get filterout lines without the proper score levels at func genomics
-    val filteredOTData = ss.sql("SELECT * FROM postgap WHERE vep_max_score >= 0.65 or fg_score > 0 or nearest = 1")
+    val filteredOTData = ss.sql("""
+      SELECT *
+      FROM postgap
+      WHERE (vep_max_score >= 0.65 OR fg_score > 0 OR nearest = 1) AND gwas_source = 'GWAS Catalog'""")
     filteredOTData.write.format("csv").option("header", "true").option("delimiter", "\t").save(config.out)
 
     val filteredOTDataCount = filteredOTData.count
