@@ -72,11 +72,19 @@ object PostgapQC {
       FROM postgap
       GROUP BY gwas_source""").show(100, truncate=false)
 
+    val aggregateByChr = ss.sql("""
+      SELECT GRCh38_chrom, count(*)
+      FROM postgap
+      GROUP BY GRCh38_chrom""").show(100, truncate=false)
+
     // get filterout lines without the proper score levels at func genomics
-    val filteredOTData = ss.sql("""
+    // also chromosome filter
+    val filteredOTData = ss.sql(s"""
       SELECT *
       FROM postgap
-      WHERE (vep_max_score >= 0.65 OR fg_score > 0 OR nearest = 1) AND gwas_source = 'GWAS Catalog'""")
+      WHERE (vep_max_score >= 0.65 OR fg_score > 0 OR nearest = 1)
+        AND gwas_source = 'GWAS Catalog'
+        AND GRCh38_chrom IN ${PostgapData.chromosomesString}""")
     filteredOTData.write.format("csv").option("header", "true").option("delimiter", "\t").save(config.out)
 
     val filteredOTDataCount = filteredOTData.count

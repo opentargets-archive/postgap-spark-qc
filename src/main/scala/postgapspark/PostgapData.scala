@@ -50,4 +50,7 @@ object PostgapData {
     StructField("Nearest", IntegerType) ::
     StructField("Regulome", DoubleType) ::
     StructField("VEP_reg", DoubleType) :: Nil)
+
+  val chromosomes = (1 to 22).toSeq.map(_.toString) ++ Seq("X", "Y", "MT")
+  val chromosomesString = chromosomes.mkString("('", "', '", "')")
 }
