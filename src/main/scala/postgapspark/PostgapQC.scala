@@ -60,10 +60,17 @@ object PostgapQC {
           .otherwise(0))
       .toDF
 
+    // compute nearest score
+    val nearestFn = udf((nearest: String) => PostgapData.computeNearest(nearest))
+    val pgdWithNearest = pgdWithVepMax.withColumn("nearest_score",
+      when($"Nearest".isNotNull, nearestFn($"Nearest"))
+        .otherwise(0))
+      .toDF
+
     val fgScore = udf((gtex: Double, fantom5: Double, dhs: Double, pchic: Double) =>
       PostgapFG.computeFGScore(gtex, fantom5, dhs, pchic))
 
-    val pgdWithFG = pgdWithVepMax.withColumn("fg_score",
+    val pgdWithFG = pgdWithNearest.withColumn("fg_score",
         when($"GTEx".isNotNull and $"Fantom5".isNotNull and $"DHS".isNotNull and $"PCHiC".isNotNull,
           fgScore($"GTEx", $"Fantom5", $"DHS", $"PCHiC")).otherwise(0))
       .toDF
