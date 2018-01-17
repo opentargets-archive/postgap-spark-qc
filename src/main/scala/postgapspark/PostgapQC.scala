@@ -7,9 +7,10 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
-
 import scopt.OptionParser
 
 case class Config(in: String = "", out: String = "",
@@ -17,7 +18,7 @@ case class Config(in: String = "", out: String = "",
                   kwargs: Map[String,String] = Map())
 
 object PostgapQC {
-  val progVersion = "0.13"
+  val progVersion = "0.14"
   val progName = "PostgapQC"
 
   def runQC(config: Config): SparkSession = {
@@ -32,6 +33,10 @@ object PostgapQC {
     // needed to use the $notation
     import ss.implicits._
 
+    // set log level to WARN
+    ss.sparkContext
+      .setLogLevel(config.kwargs.getOrElse("log-level", "WARN"))
+
     val ecoLT = PostgapECO.generateLookupTable(ss, config.eco)
 
     // read the data with a predefined schema
@@ -45,11 +50,15 @@ object PostgapQC {
       .schema(PostgapData.Schema)
       .load(config.in)
 
+    val pgdWithCK = pgd
+      .withColumn("ck", concat($"ld_snp_rsID", $"gwas_snp", $"disease_efo_id", $"gene_id", $"gwas_pmid"))
+      .toDF
+
     val maxVEP = udf((vep: String) => PostgapECO.computeMaxVEP(vep, ecoLT))
-    val pgdWithVepMax = pgd.withColumn("vep_max_score",
+    val pgdWithVepMax = pgdWithCK.withColumn("vep_max_score",
         when($"vep_terms".isNotNull, maxVEP($"vep_terms"))
           .otherwise(0))
-      .toDF()
+      .toDF
 
     val fgScore = udf((gtex: Double, fantom5: Double, dhs: Double, pchic: Double) =>
       PostgapFG.computeFGScore(gtex, fantom5, dhs, pchic))
@@ -57,7 +66,7 @@ object PostgapQC {
     val pgdWithFG = pgdWithVepMax.withColumn("fg_score",
         when($"GTEx".isNotNull and $"Fantom5".isNotNull and $"DHS".isNotNull and $"PCHiC".isNotNull,
           fgScore($"GTEx", $"Fantom5", $"DHS", $"PCHiC")).otherwise(0))
-      .toDF()
+      .toDF
 
     val funcDist = udf((snpChr: String, geneChr: String, snpPos: Int, genePos: Int) =>
       PostgapData.computeAbsDist(snpChr, geneChr, snpPos, genePos))
@@ -66,7 +75,8 @@ object PostgapQC {
       when($"GRCh38_chrom".isNotNull and $"GRCh38_gene_chrom".isNotNull
           and $"GRCh38_pos".isNotNull and $"GRCh38_gene_pos".isNotNull,
         funcDist($"GRCh38_chrom", $"GRCh38_gene_chrom", $"GRCh38_pos", $"GRCh38_gene_pos")).otherwise(Int.MaxValue))
-      .toDF()
+      .toDF
+
     // print schema and create a temp table to query
     // pgd.printSchema()
 
@@ -116,13 +126,20 @@ object PostgapQC {
         AND GRCh38_chrom = GRCh38_gene_chrom
         AND snp_gene_dist <= 1000000""")
 
-    filteredOTData.write.format("csv")
+    // compute window with partition and desc sorting by pvalue
+    val win = Window.partitionBy($"ck").orderBy($"gwas_pvalue".desc)
+    val fOTPValueFiltered = filteredOTData
+      .withColumn("win", row_number.over(win)).where($"win" === 1)
+      .drop("win").toDF
+
+    // output everything to a folder from cmd args
+    fOTPValueFiltered.write.format("csv")
       .option("header", "true")
       .option("delimiter", "\t")
       .save(config.out)
 
-    val filteredOTDataCount = filteredOTData.count
-    println(s"The number of filtered rows is $filteredOTDataCount")
+    val fOTPValueFilteredCount = fOTPValueFiltered.count
+    println(s"The number of filtered rows is $fOTPValueFilteredCount")
 
     ss
   }

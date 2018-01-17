@@ -1,5 +1,6 @@
 package postgapspark
 
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 
 object PostgapData {
@@ -50,6 +51,12 @@ object PostgapData {
     StructField("Nearest", IntegerType) ::
     StructField("Regulome", DoubleType) ::
     StructField("VEP_reg", DoubleType) :: Nil)
+
+  val finalSchema = StructType(PostgapData.Schema ++
+    StructType(StructField("vep_max_score", DoubleType)
+      :: StructField("fg_score", DoubleType) :: Nil) )
+
+  val finalEncoder = RowEncoder(finalSchema)
 
   val chromosomes = (1 to 22).toSeq.map(_.toString) ++ Seq("X", "Y", "MT")
   val chromosomesString = chromosomes.mkString("('", "', '", "')")
