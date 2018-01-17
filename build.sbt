@@ -7,7 +7,7 @@ name := "postgap-spark"
 //  case _ => localVersion
 //}
 
-version := "0.12"
+version := "0.13"
 
 scalaVersion := "2.11.12"
 

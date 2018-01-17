@@ -17,7 +17,7 @@ case class Config(in: String = "", out: String = "",
                   kwargs: Map[String,String] = Map())
 
 object PostgapQC {
-  val progVersion = "0.12"
+  val progVersion = "0.13"
   val progName = "PostgapQC"
 
   def runQC(config: Config): SparkSession = {
@@ -75,23 +75,35 @@ object PostgapQC {
     // persist the created table
     ss.table("postgap").persist(StorageLevel.MEMORY_AND_DISK)
 
-    val aggregateBySource = ss.sql("""
-      SELECT gwas_source, count(*)
-      FROM postgap
-      GROUP BY gwas_source""").show(100, truncate=false)
+//    val aggregateBySource = ss.sql("""
+//      SELECT gwas_source, count(*)
+//      FROM postgap
+//      GROUP BY gwas_source""").show(100, truncate=false)
 
-    val aggregateByNearest = ss.sql("""
-      SELECT Nearest, count(*)
-      FROM postgap
-      WHERE gwas_source = 'GWAS Catalog'
-      GROUP BY Nearest""").show(100, truncate=false)
+//    val gwasData = ss.sql("""
+//      SELECT *
+//      FROM postgap
+//      WHERE gwas_source = 'GWAS Catalog'""")
+//
+//    val gwasDataCount = gwasData.count()
+//
+//    gwasData.write.format("csv")
+//        .option("header", "true")
+//        .option("delimiter", "\t")
+//        .save("out-gwas-catalog/")
+
+//    val aggregateByNearest = ss.sql("""
+//      SELECT Nearest, count(*)
+//      FROM postgap
+//      WHERE gwas_source = 'GWAS Catalog'
+//      GROUP BY Nearest""").show(100, truncate=false)
 
 
-    val aggregateByChr = ss.sql("""
-      SELECT GRCh38_chrom, count(*) GRCh38_chrom_count
-      FROM postgap
-      GROUP BY GRCh38_chrom
-      ORDER BY GRCh38_chrom_count DESC""").show(1000, truncate=false)
+//    val aggregateByChr = ss.sql("""
+//      SELECT GRCh38_chrom, count(*) GRCh38_chrom_count
+//      FROM postgap
+//      GROUP BY GRCh38_chrom
+//      ORDER BY GRCh38_chrom_count DESC""").show(1000, truncate=false)
 
     // get filterout lines without the proper score levels at func genomics
     // also chromosome filter
@@ -103,10 +115,14 @@ object PostgapQC {
         AND GRCh38_chrom IN ${PostgapData.chromosomesString}
         AND GRCh38_chrom = GRCh38_gene_chrom
         AND snp_gene_dist <= 1000000""")
-    filteredOTData.write.format("csv").option("header", "true").option("delimiter", "\t").save(config.out)
+
+    filteredOTData.write.format("csv")
+      .option("header", "true")
+      .option("delimiter", "\t")
+      .save(config.out)
 
     val filteredOTDataCount = filteredOTData.count
-    println(s"The number of rows with (vep >= 0.65 or fg > 0 or nearest) is $filteredOTDataCount")
+    println(s"The number of filtered rows is $filteredOTDataCount")
 
     ss
   }
