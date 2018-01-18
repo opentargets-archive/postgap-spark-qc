@@ -18,7 +18,7 @@ case class Config(in: String = "", out: String = "",
                   kwargs: Map[String,String] = Map())
 
 object PostgapQC {
-  val progVersion = "0.14"
+  val progVersion = "0.15"
   val progName = "PostgapQC"
 
   def runQC(config: Config): SparkSession = {
@@ -127,7 +127,7 @@ object PostgapQC {
     val filteredOTData = ss.sql(s"""
       SELECT *
       FROM postgap
-      WHERE (vep_max_score >= 0.65 OR fg_score > 0 OR Nearest = 1)
+      WHERE (vep_max_score >= 0.65 OR fg_score > 0 OR nearest_score > 0)
         AND gwas_source = 'GWAS Catalog'
         AND GRCh38_chrom IN ${PostgapData.chromosomesString}
         AND GRCh38_chrom = GRCh38_gene_chrom
