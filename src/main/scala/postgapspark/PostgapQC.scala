@@ -18,7 +18,7 @@ case class Config(in: String = "", out: String = "",
                   kwargs: Map[String,String] = Map())
 
 object PostgapQC {
-  val progVersion = "0.15"
+  val progVersion = "0.16"
   val progName = "PostgapQC"
 
   def runQC(config: Config): SparkSession = {
@@ -73,11 +73,17 @@ object PostgapQC {
       .toDF
 
     val fgScore = udf((gtex: Double, fantom5: Double, dhs: Double, pchic: Double) =>
-      PostgapFG.computeFGScore(gtex, fantom5, dhs, pchic))
+      PostgapFG.computeFGScore(gtex, fantom5, dhs, pchic)._2)
+
+    val fgScoreTerm = udf((gtex: Double, fantom5: Double, dhs: Double, pchic: Double) =>
+      PostgapFG.computeFGScore(gtex, fantom5, dhs, pchic)._1)
 
     val pgdWithFG = pgdWithNearest.withColumn("fg_score",
         when($"GTEx".isNotNull and $"Fantom5".isNotNull and $"DHS".isNotNull and $"PCHiC".isNotNull,
           fgScore($"GTEx", $"Fantom5", $"DHS", $"PCHiC")).otherwise(0))
+      .withColumn("fg_score_term",
+        when($"GTEx".isNotNull and $"Fantom5".isNotNull and $"DHS".isNotNull and $"PCHiC".isNotNull,
+          fgScoreTerm($"GTEx", $"Fantom5", $"DHS", $"PCHiC")).otherwise(0))
       .toDF
 
     val funcDist = udf((snpChr: String, geneChr: String, snpPos: Int, genePos: Int) =>
