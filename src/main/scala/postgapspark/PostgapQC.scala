@@ -83,7 +83,7 @@ object PostgapQC {
           fgScore($"GTEx", $"Fantom5", $"DHS", $"PCHiC")).otherwise(0))
       .withColumn("fg_score_term",
         when($"GTEx".isNotNull and $"Fantom5".isNotNull and $"DHS".isNotNull and $"PCHiC".isNotNull,
-          fgScoreTerm($"GTEx", $"Fantom5", $"DHS", $"PCHiC")).otherwise(0))
+          fgScoreTerm($"GTEx", $"Fantom5", $"DHS", $"PCHiC")).otherwise(""))
       .toDF
 
     val funcDist = udf((snpChr: String, geneChr: String, snpPos: Int, genePos: Int) =>
