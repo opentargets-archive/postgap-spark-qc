@@ -55,10 +55,14 @@ object PostgapQC {
         $"gene_id", $"gwas_pmid"))
       .toDF
 
-    val maxVEP = udf((vep: String) => PostgapECO.computeMaxVEP(vep, ecoLT))
+    val maxVEP = udf((vep: String) => PostgapECO.computeMaxVEP(vep, ecoLT)._2)
+    val maxVEPTerm = udf((vep: String) => PostgapECO.computeMaxVEP(vep, ecoLT)._1)
     val pgdWithVepMax = pgdWithCK.withColumn("vep_max_score",
         when($"vep_terms".isNotNull, maxVEP($"vep_terms"))
           .otherwise(0))
+        .withColumn("vep_max_score_term",
+          when($"vep_terms".isNotNull, maxVEPTerm($"vep_terms"))
+            .otherwise(""))
       .toDF
 
     // compute nearest score
