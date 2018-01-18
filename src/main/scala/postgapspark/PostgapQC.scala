@@ -51,7 +51,8 @@ object PostgapQC {
       .load(config.in)
 
     val pgdWithCK = pgd
-      .withColumn("ck", concat($"ld_snp_rsID", $"gwas_snp", $"disease_efo_id", $"gene_id", $"gwas_pmid"))
+      .withColumn("ck", concat_ws("_", $"ld_snp_rsID", $"gwas_snp", $"disease_efo_id",
+        $"gene_id", $"gwas_pmid"))
       .toDF
 
     val maxVEP = udf((vep: String) => PostgapECO.computeMaxVEP(vep, ecoLT))
@@ -97,17 +98,17 @@ object PostgapQC {
 //      FROM postgap
 //      GROUP BY gwas_source""").show(100, truncate=false)
 
-//    val gwasData = ss.sql("""
-//      SELECT *
-//      FROM postgap
-//      WHERE gwas_source = 'GWAS Catalog'""")
-//
-//    val gwasDataCount = gwasData.count()
-//
-//    gwasData.write.format("csv")
-//        .option("header", "true")
-//        .option("delimiter", "\t")
-//        .save("out-gwas-catalog/")
+    val gwasData = ss.sql("""
+      SELECT *
+      FROM postgap
+      WHERE gwas_source = 'GWAS Catalog'""")
+
+    val gwasDataCount = gwasData.count()
+
+    gwasData.write.format("csv")
+        .option("header", "true")
+        .option("delimiter", "\t")
+        .save("out-gwas-catalog/")
 
 //    val aggregateByNearest = ss.sql("""
 //      SELECT Nearest, count(*)
@@ -146,7 +147,7 @@ object PostgapQC {
       .save(config.out)
 
     val fOTPValueFilteredCount = fOTPValueFiltered.count
-    println(s"The number of filtered rows is $fOTPValueFilteredCount")
+    println(s"The number of filtered rows is $fOTPValueFilteredCount from gwas data $gwasDataCount")
 
     ss
   }
